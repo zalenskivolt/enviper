@@ -133,6 +133,9 @@ func (e *Enviper) bindEnvs(in interface{}, prev ...string) {
 				tv = t.Name
 			}
 
+			if !fv.CanInterface() {
+				break
+			}
 			e.bindEnvs(fv.Interface(), append(prev, tv)...)
 		}
 	case reflect.Map:
