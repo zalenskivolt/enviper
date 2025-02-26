@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iamolegga/enviper"
-	"github.com/spf13/viper"
+	"github.com/zalenskivolt/enviper"
+	"github.com/zalenskivolt/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )

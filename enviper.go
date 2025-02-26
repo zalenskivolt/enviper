@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 
-	"github.com/spf13/viper"
+	"github.com/zalenskivolt/viper"
 )
 
 // Enviper is a wrapper struct for viper,
