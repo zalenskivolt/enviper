@@ -64,6 +64,28 @@ func (e *Enviper) Unmarshal(rawVal interface{}, opts ...viper.DecoderConfigOptio
 	return e.Viper.Unmarshal(rawVal, opts...)
 }
 
+func (e *Enviper) UnmarshalExact(rawVal interface{}, opts ...viper.DecoderConfigOption) error {
+	if e.TagName() != defaultTagName {
+		opts = append(opts, func(c *mapstructure.DecoderConfig) {
+			c.TagName = e.TagName()
+		})
+	}
+
+	if err := e.Viper.ReadInConfig(); err != nil {
+		switch err.(type) {
+		case viper.ConfigFileNotFoundError:
+			// 	do nothing
+		default:
+			return err
+		}
+	}
+	// We need to unmarshal before the env binding to make sure that keys of maps are bound just like the struct fields
+	// We silence errors here because we'll unmarshal a second time
+	_ = e.Viper.UnmarshalExact(rawVal, opts...)
+	e.readEnvs(rawVal)
+	return e.Viper.UnmarshalExact(rawVal, opts...)
+}
+
 func (e *Enviper) readEnvs(rawVal interface{}) {
 	e.Viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	e.bindEnvs(rawVal)
