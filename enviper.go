@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 
-	"github.com/spf13/viper"
+	"github.com/zalenskivolt/viper"
 )
 
 // Enviper is a wrapper struct for viper,
@@ -64,6 +64,28 @@ func (e *Enviper) Unmarshal(rawVal interface{}, opts ...viper.DecoderConfigOptio
 	return e.Viper.Unmarshal(rawVal, opts...)
 }
 
+func (e *Enviper) UnmarshalExact(rawVal interface{}, opts ...viper.DecoderConfigOption) error {
+	if e.TagName() != defaultTagName {
+		opts = append(opts, func(c *mapstructure.DecoderConfig) {
+			c.TagName = e.TagName()
+		})
+	}
+
+	if err := e.Viper.ReadInConfig(); err != nil {
+		switch err.(type) {
+		case viper.ConfigFileNotFoundError:
+			// 	do nothing
+		default:
+			return err
+		}
+	}
+	// We need to unmarshal before the env binding to make sure that keys of maps are bound just like the struct fields
+	// We silence errors here because we'll unmarshal a second time
+	_ = e.Viper.UnmarshalExact(rawVal, opts...)
+	e.readEnvs(rawVal)
+	return e.Viper.UnmarshalExact(rawVal, opts...)
+}
+
 func (e *Enviper) readEnvs(rawVal interface{}) {
 	e.Viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	e.bindEnvs(rawVal)
@@ -75,7 +97,8 @@ func (e *Enviper) bindEnvs(in interface{}, prev ...string) {
 		ifv = ifv.Elem()
 	}
 
-	switch ifv.Kind() {
+	fieldKind := ifv.Kind()
+	switch fieldKind {
 	case reflect.Struct:
 		for i := 0; i < ifv.NumField(); i++ {
 			fv := ifv.Field(i)
@@ -110,6 +133,9 @@ func (e *Enviper) bindEnvs(in interface{}, prev ...string) {
 				tv = t.Name
 			}
 
+			if !fv.CanInterface() {
+				break
+			}
 			e.bindEnvs(fv.Interface(), append(prev, tv)...)
 		}
 	case reflect.Map:
@@ -120,9 +146,13 @@ func (e *Enviper) bindEnvs(in interface{}, prev ...string) {
 			}
 		}
 	default:
-		env := strings.Join(prev, ".")
+		key := strings.Join(prev, ".")
 		// Viper.BindEnv will never return error
-		// because env is always non empty string
-		_ = e.Viper.BindEnv(env)
+		// because key is always non empty string
+		if fieldKind != reflect.Slice {
+			_ = e.Viper.BindEnv(key)
+		} else {
+			_ = e.Viper.BindEnvSliceValue(key)
+		}
 	}
 }
